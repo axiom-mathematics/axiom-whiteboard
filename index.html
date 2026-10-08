@@ -329,6 +329,14 @@
   #joinBanner.warn { background: #5c2a0a; border-color: #ffd7b0; color: #ffe9d6; }
   #joinBanner .shareDot { box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
   body.joined #shareBtn, body.joined #newBoard, body.joined #boardsBtn { display: none; }
+  #textEditor {
+    position: absolute; z-index: 1; margin: 0; border: 0; border-radius: 0; box-shadow: none;
+    outline: 1px dashed rgba(124, 92, 176, .85); outline-offset: 0;
+    background: transparent; resize: none; overflow: hidden; white-space: pre; overflow-wrap: normal;
+    font-family: "Segoe UI", system-ui, sans-serif; font-weight: 400; font-style: normal;
+    letter-spacing: normal; word-spacing: normal; text-transform: none; tab-size: 4;
+    min-width: 0; min-height: 0; max-width: none; max-height: none;
+  }
 </style>
 </head>
 <body>
@@ -383,6 +391,10 @@
     <button class="tool" id="tool-highlighter" aria-pressed="false" title="Highlighter">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h8"/><path d="M14.5 4.5l5 5L9 20H4v-5L14.5 4.5z"/></svg>
       <span>Mark</span>
+    </button>
+    <button class="tool" id="tool-text" aria-pressed="false" title="Type text on the board">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 7V5h14v2"/><path d="M12 5v14"/><path d="M9 19h6"/></svg>
+      <span>Text</span>
     </button>
     <button class="tool" id="tool-image" aria-pressed="false" title="Add an image">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 14l2.5-2.5L14 15l2-2 2 2"/><circle cx="9" cy="9" r="1"/></svg>
@@ -572,6 +584,16 @@ const state = {
   shapes: [],
   shape: "segment"
 };
+
+// Text tool: typed text becomes a shape with kind "text" (font size kept in board units).
+const TEXT_FONT = "\"Segoe UI\", system-ui, sans-serif";
+const TEXT_BASE = 100;
+const TEXT_LH = 1.25;
+const TEXT_PAD = 0.2;
+const TEXT_SCREEN_PX = 24;
+const TEXT_MAX_LEN = 5000;
+const TEXT_MAX_SIZE = 5000;
+let textEd = null;
 
 const PRESETS = ["#111111","#0e2f73","#c62828","#1b7a3a","#e07a12","#6a3ea1","#8d5524","#ffffff","#f4d03f","#00897b"];
 
@@ -789,7 +811,7 @@ function draw() {
   const paper = papers[state.paper];
   drawPaper(ctx, w, h, state.view, paper, dpr);
   for (const im of state.images) paintImage(ctx, im, state.view, dpr);
-  for (const sh of state.shapes) paintShape(ctx, sh, state.view, dpr);
+  for (const sh of state.shapes) if (!(textEd && textEd.sh === sh)) paintShape(ctx, sh, state.view, dpr);
   for (const s of state.strokes) paintStroke(ctx, s, state.view, true, dpr);
   if (state.drawing) paintStroke(ctx, state.drawing, state.view, false, dpr);
   if (state.sel) {
@@ -854,6 +876,7 @@ function draw() {
   paintQuietMark(ctx, w, h, dpr);
   const zl = document.getElementById("zoomBadge");
   if (zl) zl.textContent = Math.round(state.view.z * 100) + "%";
+  if (textEd) placeTextEditor();
 }
 
 const past = [];
@@ -952,7 +975,7 @@ function beginCornerResize(im, corner, e) {
     ne: [im.x, im.y + im.h],
     sw: [im.x + im.w, im.y]
   }[corner];
-  state.resizing = { im, corner, ax: anchor[0], ay: anchor[1], ratio: im.w / im.h, ox: im.x, oy: im.y, ow: im.w, oh: im.h, lock: im.lock !== false };
+  state.resizing = { im, corner, ax: anchor[0], ay: anchor[1], ratio: im.w / im.h, ox: im.x, oy: im.y, ow: im.w, oh: im.h, lock: im.lock !== false, osize: im.size };
   state.moving = null;
   board.setPointerCapture(e.pointerId);
   draw();
@@ -963,9 +986,28 @@ function pointerDown(e) {
     board.setPointerCapture(e.pointerId);
     return;
   }
+  if (textEd) {
+    // A click outside the typing box saves it. With the Text tool that click only saves (or opens other text).
+    const wasText = state.tool === "text";
+    commitTextEditor();
+    if (wasText) {
+      closePanels();
+      const q = worldFromEvent(e);
+      const hitT = textAt(q[0], q[1]);
+      if (hitT) openTextEditor(hitT);
+      return;
+    }
+  }
   closePanels();
   state.guides = null;
   const p = worldFromEvent(e);
+  if (state.tool === "text") {
+    state.sel = null;
+    const hitT = textAt(p[0], p[1]);
+    if (hitT) openTextEditor(hitT);
+    else openTextEditor(null, p[0], p[1]);
+    return;
+  }
   if (state.tool === "emoji") {
     placeEmoji(p[0], p[1]);
     board.setPointerCapture(e.pointerId);
@@ -1133,7 +1175,7 @@ function shapeHandles(sel) {
   const sh = [...sel.shapes][0];
   const r = 14 / state.view.z;
   const cx = sh.x + sh.w / 2, cy = sh.y + sh.h / 2, ang = sh.rot || 0;
-  const canSpin = sh.kind === "ruler" || sh.kind === "protractor";
+  const canSpin = sh.kind === "ruler" || sh.kind === "protractor" || sh.kind === "text";
   const corners = canSpin ? imageWorldCorners(sh) : [
       { id: "nw", x: sh.x, y: sh.y },
       { id: "ne", x: sh.x + sh.w, y: sh.y },
@@ -1337,6 +1379,7 @@ function snapBox(box, skipIm, skipStroke, skipShape) {
 function finishResizeBox(x, y, w, h) {
   const rz = state.resizing;
   rz.im.x = x; rz.im.y = y; rz.im.w = w; rz.im.h = h;
+  if (rz.im.kind === "text" && rz.ow > 0 && rz.osize > 0) rz.im.size = Math.min(TEXT_MAX_SIZE, rz.osize * w / rz.ow);
   const ids = state.sel.ids, imgs = state.sel.imgs, shapes = state.sel.shapes;
   state.sel = { minx: x, miny: y, maxx: x + w, maxy: y + h, minx0: x, miny0: y, maxx0: x + w, maxy0: y + h, ids, imgs, shapes };
 }
@@ -1462,7 +1505,7 @@ function pointerMove(e) {
   }
   if (!state.resizing && !state.moving && !state.panning && !state.space && !state.drawing) {
     const hp = worldFromEvent(e);
-    const corner = cornerAt(hp);
+    const corner = state.tool === "text" ? null : cornerAt(hp);
     const groupGrip = state.tool === "select" ? groupHandleAt(hp, state.sel) : null;
     if (groupGrip) board.style.cursor = resizeCursorFor(groupGrip);
     else if (corner) board.style.cursor = (corner.corner === "nw" || corner.corner === "se") ? "nwse-resize" : "nesw-resize";
@@ -1472,7 +1515,7 @@ function pointerMove(e) {
       else if (grip) board.style.cursor = resizeCursorFor(grip.corner);
       else if (state.sel && state.sel.ids && hitBox(hp[0], hp[1], state.sel)) board.style.cursor = "move";
       else board.style.cursor = "default";
-    } else board.style.cursor = state.tool === "eraser" || state.tool === "rub" ? "cell" : state.tool === "hand" ? "grab" : "crosshair";
+    } else board.style.cursor = state.tool === "eraser" || state.tool === "rub" ? "cell" : state.tool === "hand" ? "grab" : state.tool === "text" ? "text" : "crosshair";
   }
   if (state.resizing) {
     const p = worldFromEvent(e);
@@ -1577,7 +1620,7 @@ function pointerUp(e) {
     if (im.w !== rz.ow || im.h !== rz.oh) {
       const snap = state.strokes.slice();
       snap._images = state.images.map(x => x === im ? { el: im.el, x: rz.ox, y: rz.oy, w: rz.ow, h: rz.oh, rot: im.rot || 0 } : x);
-      snap._shapes = state.shapes.map(s => s === im ? Object.assign(cloneShape(s), { x: rz.ox, y: rz.oy, w: rz.ow, h: rz.oh }) : cloneShape(s));
+      snap._shapes = state.shapes.map(s => s === im ? Object.assign(cloneShape(s), { x: rz.ox, y: rz.oy, w: rz.ow, h: rz.oh, size: s.kind === "text" ? rz.osize : s.size }) : cloneShape(s));
       past.push(snap);
       if (past.length > 80) past.shift();
       state.undone = [];
@@ -1764,6 +1807,7 @@ board.addEventListener("wheel", e => {
 }, { passive: false });
 
 function undo() {
+  commitTextEditor();
   if (!past.length) return;
   const cur = state.strokes;
   cur._images = state.images.slice();
@@ -1777,6 +1821,7 @@ function undo() {
   draw();
 }
 function redo() {
+  commitTextEditor();
   if (!state.undone.length) return;
   const cur = state.strokes;
   cur._images = state.images.slice();
@@ -1828,13 +1873,14 @@ window.addEventListener("keyup", e => {
 });
 
 function setTool(name) {
+  commitTextEditor();
   state.tool = name;
-  for (const id of ["pen", "select", "line", "highlighter", "eraser", "rub", "hand", "emoji", "shapes", "ruler", "protractor"]) {
+  for (const id of ["pen", "select", "line", "highlighter", "eraser", "rub", "hand", "emoji", "shapes", "ruler", "protractor", "text"]) {
     document.getElementById("tool-" + id).setAttribute("aria-pressed", id === name ? "true" : "false");
   }
   if (name !== "emoji") document.getElementById("emojiPanel").classList.remove("open");
   if (name !== "shapes") document.getElementById("shapePanel").classList.remove("open");
-  board.style.cursor = name === "eraser" || name === "rub" ? "cell" : name === "hand" ? "grab" : name === "select" ? "default" : "crosshair";
+  board.style.cursor = name === "eraser" || name === "rub" ? "cell" : name === "hand" ? "grab" : name === "select" ? "default" : name === "text" ? "text" : "crosshair";
 }
 document.getElementById("hideDock").onclick = () => document.getElementById("dockWrap").classList.add("collapsed");
 document.getElementById("showDock").onclick = () => document.getElementById("dockWrap").classList.remove("collapsed");
@@ -1844,6 +1890,7 @@ document.getElementById("tool-pen").onclick = () => setTool("pen");
 document.getElementById("tool-select").onclick = () => setTool("select");
 document.getElementById("tool-line").onclick = () => setTool("line");
 document.getElementById("tool-highlighter").onclick = () => setTool("highlighter");
+document.getElementById("tool-text").onclick = () => setTool("text");
 document.getElementById("tool-eraser").onclick = () => setTool("eraser");
 document.getElementById("tool-rub").onclick = () => setTool("rub");
 document.getElementById("tool-hand").onclick = () => setTool("hand");
@@ -2153,7 +2200,10 @@ function contentWorldBounds() {
     for (const pt of s.points) add(pt[0] - pad, pt[1] - pad, pt[0] + pad, pt[1] + pad);
   }
   for (const im of state.images) { const bb = imageAabb(im); add(bb.minx, bb.miny, bb.maxx, bb.maxy); }
-  for (const sh of state.shapes) add(sh.x, sh.y, sh.x + sh.w, sh.y + sh.h);
+  for (const sh of state.shapes) {
+    if (sh.kind === "text") { const bb = shapeAabb(sh); add(bb.minx, bb.miny, bb.maxx, bb.maxy); }
+    else add(sh.x, sh.y, sh.x + sh.w, sh.y + sh.h);
+  }
   if (!any) return null;
   return { minx, miny, maxx, maxy };
 }
@@ -2255,7 +2305,9 @@ const SHAPE_SPECS = [
   { id: "right-angle", label: "Rt. angle", title: "Right-angle mark", w: 40, h: 40, lock: true }
 ];
 function cloneShape(s) {
-  return { kind: s.kind, x: s.x, y: s.y, w: s.w, h: s.h, color: s.color, size: s.size, lock: s.lock !== false, rot: s.rot || 0 };
+  const c = { kind: s.kind, x: s.x, y: s.y, w: s.w, h: s.h, color: s.color, size: s.size, lock: s.lock !== false, rot: s.rot || 0 };
+  if (typeof s.text === "string") c.text = s.text;
+  return c;
 }
 function paintShape(g, sh, view, scale) {
   g.save();
@@ -2411,6 +2463,8 @@ function paintShape(g, sh, view, scale) {
     g.lineTo(x0 + m, y0 - m);
     g.lineTo(x0 + m, y0);
     g.stroke();
+  } else if (kind === "text") {
+    paintTextLocal(g, sh);
   } else if (kind === "ruler") {
     const ink = sh.color || "#1a4a6e";
     g.fillStyle = "rgba(186, 228, 245, 0.62)";
@@ -2573,6 +2627,174 @@ function paintShape(g, sh, view, scale) {
   }
   g.restore();
 }
+// ----- Text tool: an inline box to type in; committed text is a shape with kind "text" -----
+function textCtx() {
+  if (!textCtx.g) textCtx.g = document.createElement("canvas").getContext("2d");
+  textCtx.g.font = TEXT_BASE + "px " + TEXT_FONT;
+  return textCtx.g;
+}
+function textLines(text) {
+  return String(text).split(/\r\n|\r|\n/);
+}
+function textLayout(text, size) {
+  const g = textCtx();
+  const lines = textLines(text);
+  let widest = 0;
+  for (const ln of lines) widest = Math.max(widest, g.measureText(ln).width);
+  const pad = size * TEXT_PAD;
+  return { lines, pad, w: widest * size / TEXT_BASE + pad * 2, h: lines.length * size * TEXT_LH + pad * 2 };
+}
+function textBaselineOffset(g) {
+  // Where the baseline sits inside one line, matching how the browser lays out the typing box.
+  const m = g.measureText("Hg");
+  const a = m.fontBoundingBoxAscent, d = m.fontBoundingBoxDescent;
+  if (Number.isFinite(a) && Number.isFinite(d) && a + d > 0) return (TEXT_BASE * TEXT_LH - (a + d)) / 2 + a;
+  return TEXT_BASE * (TEXT_LH / 2 + 0.35);
+}
+function paintTextLocal(g, sh) {
+  // Drawn with fillText only (never as HTML). The box's top-left corner is at (0, 0).
+  if (typeof sh.text !== "string" || !(sh.size > 0)) return;
+  const k = sh.size / TEXT_BASE;
+  const pad = sh.size * TEXT_PAD;
+  g.font = TEXT_BASE + "px " + TEXT_FONT;
+  g.textAlign = "left";
+  g.textBaseline = "alphabetic";
+  g.fillStyle = sh.color;
+  const off = textBaselineOffset(g);
+  g.translate(pad, pad);
+  g.scale(k, k);
+  const lines = textLines(sh.text);
+  for (let i = 0; i < lines.length; i++) if (lines[i]) g.fillText(lines[i], 0, i * TEXT_BASE * TEXT_LH + off);
+}
+function textAt(x, y) {
+  return [...state.shapes].reverse().find(sh => sh.kind === "text" && shapeHit(sh, x, y)) || null;
+}
+function placeTextEditor() {
+  const ed = textEd;
+  if (!ed || !ed.el.parentNode) return;
+  const z = state.view.z;
+  const lay = textLayout(ed.el.value, ed.size);
+  const fs = ed.size * z;
+  const br = board.getBoundingClientRect();
+  const pr = ed.el.parentNode.getBoundingClientRect();
+  const s = ed.el.style;
+  s.left = (br.left - pr.left + state.view.x + ed.ax * z) + "px";
+  s.top = (br.top - pr.top + state.view.y + ed.ay * z) + "px";
+  s.fontSize = fs + "px";
+  s.lineHeight = (fs * TEXT_LH) + "px";
+  s.padding = (ed.size * TEXT_PAD * z) + "px";
+  s.width = Math.ceil(lay.w * z + Math.max(8, fs * 0.6)) + "px";
+  s.height = Math.ceil(lay.h * z + 2) + "px";
+  s.transformOrigin = "0 0";
+  s.transform = ed.rot ? "rotate(" + ed.rot + "rad)" : "none";
+  ed.el.scrollLeft = 0;
+  ed.el.scrollTop = 0;
+}
+function openTextEditor(sh, wx, wy) {
+  if (textEd) commitTextEditor();
+  let size, color, rot, ax, ay;
+  if (sh) {
+    size = sh.size; color = sh.color; rot = sh.rot || 0;
+    const tl = rotPt(sh.x, sh.y, sh.x + sh.w / 2, sh.y + sh.h / 2, rot);
+    ax = tl[0]; ay = tl[1];
+  } else {
+    size = Math.min(TEXT_MAX_SIZE, TEXT_SCREEN_PX / state.view.z);
+    color = cssColor(); rot = 0;
+    ax = wx - size * TEXT_PAD;
+    ay = wy - size * TEXT_LH / 2 - size * TEXT_PAD;
+  }
+  const el = document.createElement("textarea");
+  el.id = "textEditor";
+  el.setAttribute("wrap", "off");
+  el.setAttribute("spellcheck", "false");
+  el.setAttribute("autocomplete", "off");
+  el.setAttribute("autocapitalize", "off");
+  el.setAttribute("aria-label", "Text on the board");
+  el.maxLength = TEXT_MAX_LEN;
+  el.value = sh ? sh.text : "";
+  el.style.color = color;
+  el.style.caretColor = color;
+  textEd = { el, sh: sh || null, size, color, rot, ax, ay };
+  const stop = e => e.stopPropagation();
+  // While typing, the board's own shortcuts (space, Delete, Ctrl+Z, number keys, image paste) stay out of the way.
+  el.addEventListener("keydown", e => {
+    e.stopPropagation();
+    if (e.key === "Escape") { e.preventDefault(); commitTextEditor(); }
+    else if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "s") e.preventDefault();
+  });
+  el.addEventListener("keyup", stop);
+  el.addEventListener("keypress", stop);
+  el.addEventListener("paste", stop);
+  el.addEventListener("copy", stop);
+  el.addEventListener("cut", stop);
+  el.addEventListener("pointerdown", stop);
+  el.addEventListener("wheel", stop);
+  el.addEventListener("input", placeTextEditor);
+  el.addEventListener("blur", () => {
+    setTimeout(() => {
+      if (textEd && textEd.el === el && document.activeElement !== el && document.hasFocus()) commitTextEditor();
+    }, 0);
+  });
+  board.insertAdjacentElement("afterend", el);
+  state.sel = null;
+  draw();
+  const focusIt = () => {
+    if (!textEd || textEd.el !== el || document.activeElement === el) return;
+    el.focus({ preventScroll: true });
+    const end = el.value.length;
+    el.setSelectionRange(end, end);
+  };
+  focusIt();
+  setTimeout(focusIt, 0);
+}
+function closeTextEditor() {
+  // Drop the typing box without saving (used when a different board is loaded).
+  const ed = textEd;
+  if (!ed) return;
+  textEd = null;
+  ed.el.remove();
+}
+function commitTextEditor() {
+  const ed = textEd;
+  if (!ed) return;
+  textEd = null;
+  const raw = ed.el.value.replace(/\r\n?/g, "\n").slice(0, TEXT_MAX_LEN).replace(/\s+$/, "");
+  ed.el.remove();
+  const text = raw.trim() ? raw : "";
+  const live = ed.sh && state.shapes.includes(ed.sh) ? ed.sh : null;
+  if ((live && text === live.text) || (!live && !text)) { draw(); return; }
+  const snap = state.strokes.slice();
+  snap._images = state.images.slice();
+  snap._shapes = state.shapes.map(cloneShape);
+  past.push(snap);
+  if (past.length > 80) past.shift();
+  state.undone = [];
+  if (live && !text) {
+    state.shapes = state.shapes.filter(s => s !== live);
+  } else {
+    const lay = textLayout(text, ed.size);
+    const c = rotPt(ed.ax + lay.w / 2, ed.ay + lay.h / 2, ed.ax, ed.ay, ed.rot);
+    const x = c[0] - lay.w / 2, y = c[1] - lay.h / 2;
+    if (live) {
+      live.text = text; live.x = x; live.y = y; live.w = lay.w; live.h = lay.h;
+    } else {
+      state.shapes = state.shapes.concat([{ kind: "text", x, y, w: lay.w, h: lay.h, color: ed.color, size: ed.size, lock: true, rot: ed.rot || 0, text }]);
+    }
+  }
+  draw();
+}
+board.addEventListener("mousedown", e => { if (state.tool === "text" || textEd) e.preventDefault(); });
+board.addEventListener("dblclick", e => {
+  if (state.tool !== "select" && state.tool !== "text") return;
+  if (state.space || state.resizing || state.spinning || state.groupResizing) return;
+  const p = worldFromEvent(e);
+  const sh = textAt(p[0], p[1]);
+  if (!sh) return;
+  e.preventDefault();
+  state.moving = null;
+  state.guides = null;
+  openTextEditor(sh);
+});
 function renderShapePanel() {
   const panel = document.getElementById("shapePanel");
   panel.innerHTML = "";
@@ -2841,6 +3063,7 @@ function applyBoard(data, announce) {
   state.panning = null;
   state.guides = null;
   state.erasing = false;
+  closeTextEditor();
   if (data.paper && papers[data.paper]) state.paper = data.paper;
   if (data.view && Number.isFinite(+data.view.x) && Number.isFinite(+data.view.y) && Number.isFinite(+data.view.z) && +data.view.z > 0) {
     state.view = { x: +data.view.x, y: +data.view.y, z: +data.view.z };
@@ -2870,7 +3093,7 @@ function applyBoard(data, announce) {
     if (!item || typeof item.kind !== "string") continue;
     const w = +item.w, h = +item.h;
     if (!(w > 0) || !(h > 0)) continue;
-    state.shapes.push({
+    const shape = {
       kind: item.kind,
       x: +item.x || 0,
       y: +item.y || 0,
@@ -2878,7 +3101,14 @@ function applyBoard(data, announce) {
       color: typeof item.color === "string" ? item.color : "#17072f",
       size: +item.size > 0 ? +item.size : 2,
       lock: item.lock !== false
-    });
+    };
+    if (item.kind === "text") {
+      if (typeof item.text !== "string" || !item.text.trim() || !(+item.size > 0)) continue;
+      shape.text = item.text.slice(0, TEXT_MAX_LEN);
+      shape.size = Math.min(TEXT_MAX_SIZE, +item.size);
+      shape.rot = Number.isFinite(+item.rot) ? +item.rot : 0;
+    }
+    state.shapes.push(shape);
   }
   if (announce !== false && (state.strokes.length || state.images.length || state.shapes.length)) toast("Restored your last board");
 }
@@ -2952,6 +3182,7 @@ function blankBoard() {
   state.panning = null;
   state.guides = null;
   state.erasing = false;
+  closeTextEditor();
   state.view = { x: 0, y: 0, z: 1 };
   draw();
 }
@@ -3278,11 +3509,14 @@ const Share = (function () {
     }
     if (e.y === "i") return { y: "i", at: e.at, a: e.a, x: o.x, y2: o.y, w: o.w, h: o.h, rot: o.rot || 0 };
     const c = cloneShape(o);
-    return { y: "h", at: e.at, kind: c.kind, x: c.x, y2: c.y, w: c.w, h: c.h, color: c.color, size: c.size, lock: c.lock, rot: c.rot };
+    const out = { y: "h", at: e.at, kind: c.kind, x: c.x, y2: c.y, w: c.w, h: c.h, color: c.color, size: c.size, lock: c.lock, rot: c.rot };
+    if (typeof c.text === "string") out.text = c.text;
+    return out;
   }
   const num = v => typeof v === "number" && Number.isFinite(v);
   const str = (v, n) => typeof v === "string" && v.length <= n;
   const okDot = v => v === undefined || (num(v) && v > 0 && v <= 10000);
+  const okColor = v => str(v, 64) && /^(#[0-9a-f]{3,8}|rgba?\(\s*[0-9.]+%?\s*,\s*[0-9.]+%?\s*,\s*[0-9.]+%?\s*(,\s*[0-9.]+%?\s*)?\))$/i.test(v);
   function validItem(it) {
     if (!it || typeof it !== "object") return false;
     if (it.y === "s") {
@@ -3296,7 +3530,11 @@ const Share = (function () {
       return true;
     }
     if (it.y === "i") return str(it.a, 48) && num(it.x) && num(it.y2) && num(it.w) && num(it.h) && num(it.rot || 0) && it.w > 0 && it.h > 0;
-    if (it.y === "h") return str(it.kind, 32) && num(it.x) && num(it.y2) && num(it.w) && num(it.h) && it.w > 0 && it.h > 0;
+    if (it.y === "h") {
+      if (!(str(it.kind, 32) && num(it.x) && num(it.y2) && num(it.w) && num(it.h) && it.w > 0 && it.h > 0)) return false;
+      if (it.kind === "text") return str(it.text, TEXT_MAX_LEN) && it.text.length > 0 && num(it.size) && it.size > 0 && it.size <= TEXT_MAX_SIZE && okColor(it.color) && (it.rot === undefined || num(it.rot));
+      return true;
+    }
     return false;
   }
   function itemKey(it) {
@@ -3305,7 +3543,9 @@ const Share = (function () {
     return shapeKey(buildShape(it));
   }
   function buildShape(it) {
-    return { kind: it.kind, x: it.x, y: it.y2, w: it.w, h: it.h, color: typeof it.color === "string" ? it.color : "#17072f", size: num(it.size) && it.size > 0 ? it.size : 2, lock: it.lock !== false, rot: num(it.rot) ? it.rot : 0 };
+    const sh = { kind: it.kind, x: it.x, y: it.y2, w: it.w, h: it.h, color: typeof it.color === "string" ? it.color : "#17072f", size: num(it.size) && it.size > 0 ? it.size : 2, lock: it.lock !== false, rot: num(it.rot) ? it.rot : 0 };
+    if (it.kind === "text" && typeof it.text === "string") sh.text = it.text.slice(0, TEXT_MAX_LEN);
+    return sh;
   }
   function imageEl(a) {
     let el = assetEls.get(a);
