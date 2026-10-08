@@ -723,6 +723,21 @@ function drawPaper(g, w, h, view, paper, scale) {
 }
 
 function paintStroke(g, stroke, view, last, scale) {
+  if (stroke.dot > 0) {
+    // A pen click: a filled round dot of radius stroke.dot (board units) at its single point.
+    const p0 = stroke.points && stroke.points[0];
+    if (!p0) return;
+    g.save();
+    g.setTransform(scale, 0, 0, scale, 0, 0);
+    g.translate(view.x, view.y);
+    g.scale(view.z, view.z);
+    g.fillStyle = stroke.color;
+    g.beginPath();
+    g.arc(p0[0], p0[1], stroke.dot, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+    return;
+  }
   const outline = stroke.outline && last ? stroke.outline : outlineOf(stroke, last);
   if (!outline.length) return;
   g.save();
@@ -1054,7 +1069,7 @@ function strokeBox(s) {
     minx = Math.min(minx, p[0]); miny = Math.min(miny, p[1]);
     maxx = Math.max(maxx, p[0]); maxy = Math.max(maxy, p[1]);
   }
-  const pad = (s.size || 8) / 2;
+  const pad = s.dot > 0 ? s.dot : (s.size || 8) / 2;
   return { minx: minx - pad, miny: miny - pad, maxx: maxx + pad, maxy: maxy + pad };
 }
 function hitBox(x, y, box) {
@@ -1169,7 +1184,7 @@ function resizeCursorFor(id) {
 function strokeHit(s, x, y) {
   if (!s || !s.points || !s.points.length) return false;
   const width = s.tool === "highlighter" ? (s.size || 2) * 2.6 : (s.size || 2);
-  const tol = width / 2 + 5 / state.view.z;
+  const tol = (s.dot > 0 ? s.dot : width / 2) + 5 / state.view.z;
   const bb = strokeBox(s);
   if (x < bb.minx - tol || x > bb.maxx + tol || y < bb.miny - tol || y > bb.maxy + tol) return false;
   const pts = s.points;
@@ -1195,7 +1210,7 @@ function beginGroupResize(corner, e) {
   state.groupResizing = {
     corner, ax, ay, vx: cx - ax, vy: cy - ay, k: 1,
     box: { minx: sel.minx, miny: sel.miny, maxx: sel.maxx, maxy: sel.maxy },
-    strokes: state.strokes.filter(s => sel.ids.has(s)).map(s => ({ s, pts: s.points.map(q => q.slice()), size: s.size, outline: s.outline })),
+    strokes: state.strokes.filter(s => sel.ids.has(s)).map(s => ({ s, pts: s.points.map(q => q.slice()), size: s.size, dot: s.dot, outline: s.outline })),
     imgs: [...(sel.imgs || [])].map(im => ({ im, x: im.x, y: im.y, w: im.w, h: im.h })),
     shapes: [...(sel.shapes || [])].map(sh => ({ sh, x: sh.x, y: sh.y, w: sh.w, h: sh.h, size: sh.size }))
   };
@@ -1220,6 +1235,7 @@ function applyGroupResize(px, py) {
   for (const it of g.strokes) {
     it.s.points = it.pts.map(q => [sx(q[0]), sy(q[1]), q[2]]);
     if (it.size) it.s.size = it.size * k;
+    if (it.dot > 0) it.s.dot = it.dot * k;
     it.s.outline = null;
   }
   for (const it of g.imgs) {
@@ -1243,7 +1259,9 @@ function finishGroupResize() {
   const before = state.strokes.map(s => {
     const o = strokeOrig.get(s);
     if (!o) return s;
-    return Object.assign({}, s, { points: o.pts, size: o.size, outline: o.outline || null });
+    const b = Object.assign({}, s, { points: o.pts, size: o.size, outline: o.outline || null });
+    if (o.dot > 0) b.dot = o.dot;
+    return b;
   });
   const imgOrig = new Map(g.imgs.map(it => [it.im, it]));
   before._images = state.images.map(im => {
@@ -1677,6 +1695,15 @@ function pointerUp(e) {
   const stroke = state.drawing;
   state.drawing = null;
   if (stroke.points.length) {
+    if (stroke.tool === "pen") {
+      // A click (press and release without dragging) leaves a round dot about the size of the cursor.
+      const p0 = stroke.points[0];
+      const lim = 3 / state.view.z;
+      if (stroke.points.every(q => (q[0] - p0[0]) * (q[0] - p0[0]) + (q[1] - p0[1]) * (q[1] - p0[1]) <= lim * lim)) {
+        stroke.dot = 10 / state.view.z;
+        stroke.points = [[p0[0], p0[1], p0[2]]];
+      }
+    }
     stroke.outline = outlineOf(stroke, true);
     commit(state.strokes.concat([stroke]));
     pushRecent();
@@ -1689,6 +1716,13 @@ function rubAt(x, y) {
   const reach = (6 + state.size) / state.view.z;
   const next = [];
   for (const s of state.strokes) {
+    if (s.dot > 0) {
+      const q = s.points[0];
+      if (!q) continue;
+      const dx = q[0] - x, dy = q[1] - y, r = reach + s.dot;
+      if (dx * dx + dy * dy >= r * r) next.push(s);
+      continue;
+    }
     let chunk = [];
     const flush = () => {
       if (chunk.length > 1) next.push(Object.assign({}, s, { points: chunk, outline: null }));
@@ -1707,7 +1741,8 @@ function eraseAt(x, y) {
   const reach = (state.size * 1.4) / state.view.z;
   state.strokes = state.strokes.filter(s => !s.points.some(p => {
     const dx = p[0] - x, dy = p[1] - y;
-    return dx * dx + dy * dy < (reach + s.size) * (reach + s.size);
+    const r = reach + (s.dot > 0 ? s.dot : s.size);
+    return dx * dx + dy * dy < r * r;
   }));
 }
 
@@ -2114,7 +2149,7 @@ function contentWorldBounds() {
   };
   for (const s of state.strokes) {
     if (!s || !s.points) continue;
-    const pad = ((s.tool === "highlighter" ? (s.size || 2) * 2.6 : (s.size || 2)) * 0.65) + 4;
+    const pad = s.dot > 0 ? s.dot + 4 : ((s.tool === "highlighter" ? (s.size || 2) * 2.6 : (s.size || 2)) * 0.65) + 4;
     for (const pt of s.points) add(pt[0] - pad, pt[1] - pad, pt[0] + pad, pt[1] + pad);
   }
   for (const im of state.images) { const bb = imageAabb(im); add(bb.minx, bb.miny, bb.maxx, bb.maxy); }
@@ -2716,10 +2751,14 @@ function boardPayload() {
     savedAt: Date.now(),
     paper: state.paper,
     view: { x: state.view.x, y: state.view.y, z: state.view.z },
-    strokes: state.strokes.map(s => ({
-      tool: s.tool, color: s.color, size: s.size, realPen: s.realPen,
-      points: (s.points || []).map(pt => pt.slice())
-    })),
+    strokes: state.strokes.map(s => {
+      const o = {
+        tool: s.tool, color: s.color, size: s.size, realPen: s.realPen,
+        points: (s.points || []).map(pt => pt.slice())
+      };
+      if (s.dot > 0) o.dot = s.dot;
+      return o;
+    }),
     images: state.images.map(im => ({ src: im.el && im.el.src, x: im.x, y: im.y, w: im.w, h: im.h, rot: im.rot || 0 })),
     shapes: state.shapes.map(cloneShape),
     savedColors: state.savedColors.slice()
@@ -2813,6 +2852,7 @@ function applyBoard(data, announce) {
   }
   state.strokes = (data.strokes || []).map(s => {
     const stroke = { tool: s.tool, color: s.color, size: s.size, realPen: !!s.realPen, points: s.points || [] };
+    if (Number.isFinite(+s.dot) && +s.dot > 0) stroke.dot = +s.dot;
     stroke.outline = outlineOf(stroke, true);
     return stroke;
   });
@@ -3189,15 +3229,16 @@ const Share = (function () {
   }
 
   // ----- item keys (content based, identical on every computer) -----
-  function strokeKeyOf(tool, color, size, realPen, points) {
+  function strokeKeyOf(tool, color, size, realPen, points, dot) {
+    if (dot > 0) return "s" + hash(JSON.stringify([tool, color, size, !!realPen, points, dot]));
     return "s" + hash(JSON.stringify([tool, color, size, !!realPen, points]));
   }
   function strokeKey(s) {
     const pts = s.points || [];
     const c = strokeKeys.get(pts);
-    if (c && c.n === pts.length && c.size === s.size && c.color === s.color && c.tool === s.tool && c.pen === !!s.realPen) return c.k;
-    const k = strokeKeyOf(s.tool, s.color, s.size, s.realPen, pts);
-    strokeKeys.set(pts, { k, n: pts.length, size: s.size, color: s.color, tool: s.tool, pen: !!s.realPen });
+    if (c && c.n === pts.length && c.size === s.size && c.color === s.color && c.tool === s.tool && c.pen === !!s.realPen && c.dot === s.dot) return c.k;
+    const k = strokeKeyOf(s.tool, s.color, s.size, s.realPen, pts, s.dot);
+    strokeKeys.set(pts, { k, n: pts.length, size: s.size, color: s.color, tool: s.tool, pen: !!s.realPen, dot: s.dot });
     return k;
   }
   function assetOf(el) {
@@ -3230,17 +3271,23 @@ const Share = (function () {
   }
   function serialize(e) {
     const o = e.o;
-    if (e.y === "s") return { y: "s", at: e.at, tool: o.tool, color: o.color, size: o.size, realPen: !!o.realPen, points: o.points };
+    if (e.y === "s") {
+      const it = { y: "s", at: e.at, tool: o.tool, color: o.color, size: o.size, realPen: !!o.realPen, points: o.points };
+      if (o.dot > 0) it.dot = o.dot;
+      return it;
+    }
     if (e.y === "i") return { y: "i", at: e.at, a: e.a, x: o.x, y2: o.y, w: o.w, h: o.h, rot: o.rot || 0 };
     const c = cloneShape(o);
     return { y: "h", at: e.at, kind: c.kind, x: c.x, y2: c.y, w: c.w, h: c.h, color: c.color, size: c.size, lock: c.lock, rot: c.rot };
   }
   const num = v => typeof v === "number" && Number.isFinite(v);
   const str = (v, n) => typeof v === "string" && v.length <= n;
+  const okDot = v => v === undefined || (num(v) && v > 0 && v <= 10000);
   function validItem(it) {
     if (!it || typeof it !== "object") return false;
     if (it.y === "s") {
       if (!str(it.tool, 24) || !str(it.color, 64) || !(it.size === undefined || num(it.size))) return false;
+      if (!okDot(it.dot)) return false;
       if (!Array.isArray(it.points) || it.points.length > 50000) return false;
       for (const p of it.points) {
         if (!Array.isArray(p) || p.length < 2 || p.length > 3) return false;
@@ -3253,7 +3300,7 @@ const Share = (function () {
     return false;
   }
   function itemKey(it) {
-    if (it.y === "s") return strokeKeyOf(it.tool, it.color, it.size, it.realPen, it.points);
+    if (it.y === "s") return strokeKeyOf(it.tool, it.color, it.size, it.realPen, it.points, it.dot);
     if (it.y === "i") return imageKeyOf(it.a, it.x, it.y2, it.w, it.h, it.rot || 0);
     return shapeKey(buildShape(it));
   }
@@ -3398,17 +3445,20 @@ const Share = (function () {
     const from = replace ? 0 : live.sent;
     if (from === pts.length && from > 0) return;
     const msg = { t: "live", id: live.id, from, tool: d.tool, color: d.color, size: d.size, realPen: !!d.realPen, pts: pts.slice(from) };
+    if (d.dot > 0) msg.dot = d.dot;
     live.sent = pts.length;
     for (const c of targets()) sendMsg(c, msg);
   }
   function onLive(msg, conn) {
     if (!str(msg.id, 16) || !Array.isArray(msg.pts) || msg.pts.length > 50000 || !str(msg.color, 64) || !str(msg.tool, 24)) return;
     if (!msg.pts.every(p => Array.isArray(p) && p.length >= 2 && p.length <= 3 && p.every(num))) return;
+    if (!okDot(msg.dot)) return;
     let g = ghosts.get(msg.id);
     if (!g || msg.from === 0) { g = { s: { tool: msg.tool, color: msg.color, size: num(msg.size) ? msg.size : 3, realPen: !!msg.realPen, points: [] }, t: 0 }; ghosts.set(msg.id, g); }
     const from = Math.max(0, Math.min(g.s.points.length, msg.from | 0));
     g.s.points.length = from;
     for (const p of msg.pts) g.s.points.push(p);
+    if (msg.dot > 0) g.s.dot = msg.dot; else delete g.s.dot;
     g.t = Date.now();
     if (role.host) for (const c of targets(conn)) sendMsg(c, msg);
     draw();
@@ -3474,6 +3524,7 @@ const Share = (function () {
       let obj = null, list = null, k = "";
       if (it.y === "s") {
         obj = { tool: it.tool, color: it.color, size: it.size, realPen: !!it.realPen, points: it.points };
+        if (it.dot > 0) obj.dot = it.dot;
         obj.outline = outlineOf(obj, true);
         k = strokeKey(obj); list = strokes; newStrokes.push(obj);
       } else if (it.y === "i") {
