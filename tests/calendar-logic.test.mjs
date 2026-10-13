@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { HOME_TZ, WYZANT_CALENDAR_ID } from "../calendar/config.js";
+import { DEFAULT_CLIENT_ID, HOME_TZ, PLACEHOLDER_CLIENT_ID, WYZANT_CALENDAR_ID } from "../calendar/config.js";
 import { nearestEventColorId, displayColor, normalizeHex } from "../calendar/js/colors.js";
 import { buildInsertBody, buildPatchBody, buildTimePatch, meetAction } from "../calendar/js/eventbody.js";
 import { parseQuickAdd } from "../calendar/js/parse.js";
@@ -21,7 +21,7 @@ import {
   zoneFromAddress,
   zoneFromText,
 } from "../calendar/js/zones.js";
-import { mergeSettings, withOffsetDefaults } from "../calendar/js/store.js";
+import { mergeSettings, resolveClientId, withOffsetDefaults } from "../calendar/js/store.js";
 import {
   axiomRoomLinkOf,
   iceServers,
@@ -292,6 +292,16 @@ test("settings merge keeps manual zones and the Wyzant default", () => {
   const defaults = withOffsetDefaults({ offsets: {}, contacts: {} });
   assert.equal(defaults.offsets[WYZANT_CALENDAR_ID].hours, -2);
   assert.equal(defaults.offsets[WYZANT_CALENDAR_ID].enabled, true);
+});
+
+test("a saved client id overrides the built-in one", () => {
+  assert.equal(resolveClientId(""), DEFAULT_CLIENT_ID);
+  assert.equal(resolveClientId(PLACEHOLDER_CLIENT_ID), DEFAULT_CLIENT_ID);
+  assert.equal(resolveClientId("YOUR_CLIENT_ID.apps.googleusercontent.com"), DEFAULT_CLIENT_ID);
+  assert.equal(resolveClientId(DEFAULT_CLIENT_ID), DEFAULT_CLIENT_ID);
+  const custom = "111-custom.apps.googleusercontent.com";
+  assert.equal(resolveClientId(custom), custom);
+  assert.equal(DEFAULT_CLIENT_ID.endsWith(".apps.googleusercontent.com"), true);
 });
 
 test("Axiom room links stay out of conferenceData", () => {

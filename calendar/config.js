@@ -1,4 +1,12 @@
-/** Placeholder until Steve pastes his own OAuth client id in the app. */
+/**
+ * Public OAuth client id for the Web client in Google Cloud project
+ * secret-canyon-511520-b7. There is no client secret. A value in
+ * localStorage (axiom.calendar.clientId) overrides this on that browser.
+ */
+export const DEFAULT_CLIENT_ID =
+  "58952205315-0n8ppfru8qr8c995j3ts95jki04gpeg1.apps.googleusercontent.com";
+
+/** Old placeholder. A stored copy of this is ignored so the default above is used. */
 export const PLACEHOLDER_CLIENT_ID = "YOUR_CLIENT_ID.apps.googleusercontent.com";
 
 /** Steve's home zone. The grid always renders in this zone. */

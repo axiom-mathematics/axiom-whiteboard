@@ -1,4 +1,4 @@
-import { DRIVE_SETTINGS_NAME, LS, PLACEHOLDER_CLIENT_ID, WYZANT_CALENDAR_ID, WYZANT_DEFAULT_OFFSET_HOURS } from "../config.js";
+import { DEFAULT_CLIENT_ID, DRIVE_SETTINGS_NAME, LS, PLACEHOLDER_CLIENT_ID, WYZANT_CALENDAR_ID, WYZANT_DEFAULT_OFFSET_HOURS } from "../config.js";
 import { normalizeTurn } from "./roomlink.js";
 import { SOURCE_RANK } from "./zones.js";
 
@@ -21,17 +21,31 @@ export function clientIdConfigured(id) {
   return value.endsWith(".apps.googleusercontent.com");
 }
 
-export function loadClientId() {
+/** A saved browser id wins. Anything else, including a blank or the old placeholder, uses the built-in client. */
+export function resolveClientId(stored) {
+  const value = String(stored || "").trim();
+  if (clientIdConfigured(value)) return value;
+  return DEFAULT_CLIENT_ID;
+}
+
+export function storedClientId() {
   try {
-    return localStorage.getItem(LS.clientId) || "";
+    const value = String(localStorage.getItem(LS.clientId) || "").trim();
+    return clientIdConfigured(value) ? value : "";
   } catch {
     return "";
   }
 }
 
+export function loadClientId() {
+  return resolveClientId(storedClientId());
+}
+
 export function saveClientId(id) {
+  const value = String(id || "").trim();
   try {
-    localStorage.setItem(LS.clientId, String(id || "").trim());
+    if (!clientIdConfigured(value) || value === DEFAULT_CLIENT_ID) localStorage.removeItem(LS.clientId);
+    else localStorage.setItem(LS.clientId, value);
   } catch { /* private mode */ }
 }
 

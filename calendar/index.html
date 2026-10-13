@@ -24,20 +24,13 @@
     <h1>Axiom Calendar</h1>
     <p class="lede">Steve Kaminskie · America/Chicago</p>
     <form id="gate-form" method="post" action="#" onsubmit="return false">
-      <label for="gate-client">OAuth client ID</label>
-      <input id="gate-client" name="client" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="….apps.googleusercontent.com" inputmode="url">
       <button type="submit" class="primary signin">Sign in with Google</button>
     </form>
     <p id="gate-error" class="error" hidden></p>
-    <p class="hint">Authorized JavaScript origin: <code>https://axiom-mathematics.github.io</code></p>
+    <p class="hint">Choose <code>stephen.kaminskie@gmail.com</code>. The Google client is already set up.</p>
     <details>
-      <summary>Setup</summary>
-      <ol>
-        <li>In Google Cloud Console, create a <strong>Web application</strong> OAuth client.</li>
-        <li>Add the origin above. No redirect URI is required for the sign-in popup.</li>
-        <li>Enable the Calendar API, People API, and Drive API. Add stephen.kaminskie@gmail.com as a test user.</li>
-        <li>Paste the client ID here and sign in. The full click-path is in <code>SETUP.md</code>.</li>
-      </ol>
+      <summary>About sign-in</summary>
+      <p>Google Cloud project <code>secret-canyon-511520-b7</code>, OAuth in <strong>Testing</strong>, test user <code>stephen.kaminskie@gmail.com</code>. If Google says the app isn’t verified, continue as that test user. Testing access lasts about 7 days; tap Sign in again when it asks. A different client ID can be saved in Settings and overrides the built-in one on this browser.</p>
     </details>
     <p><a href="?demo=1" id="preview-link">Preview the layout with sample events</a></p>
   </main>

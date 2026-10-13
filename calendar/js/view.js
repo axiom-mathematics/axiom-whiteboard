@@ -620,10 +620,10 @@ export function settingsHtml(state) {
     </header>
     <div class="sheet-body">
       <h3>Google sign-in</h3>
-      <label>OAuth client ID
-        <input id="set-client" value="${esc(state.clientId || "")}" placeholder="….apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+      <label>OAuth client ID override
+        <input id="set-client" value="${esc(state.clientOverride || "")}" placeholder="Built-in client" autocomplete="off" spellcheck="false">
       </label>
-      <p class="hint">Authorized JavaScript origin: <code>https://axiom-mathematics.github.io</code>. Details are in SETUP.md.</p>
+      <p class="hint">Leave this blank to use the client ID built into the app. A value here overrides it on this browser only. Authorized JavaScript origin: <code>https://axiom-mathematics.github.io</code>.</p>
       <button type="button" id="set-save-client" class="primary">Save client ID</button>
       <button type="button" id="set-signout" class="textish">Sign out</button>
       <h3>Week</h3>
