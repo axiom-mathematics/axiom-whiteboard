@@ -18,6 +18,7 @@ import {
 } from "./eventbody.js";
 import { buildRecurrence, capRruleUntil, parseQuickAdd, parseRecurrence } from "./parse.js";
 import { calendarLocked, offsetHours } from "./policy.js";
+import { axiomRoomLinkOf, newRoomCode, normalizeTurn, placeRoom, roomUrlForCode, stripRoomText } from "./roomlink.js";
 import {
   loadClientId,
   loadLocalSettings,
@@ -582,6 +583,8 @@ function onClick(e) {
   else if (action === "copy-dial") copyText(btn.dataset.text).then((ok) => toast(ok ? "Dial-in copied" : "Couldn’t copy"));
   else if (action === "remove-meet") setMeetWanted(false);
   else if (action === "keep-meet") setMeetWanted(true);
+  else if (action === "add-room") addAxiomRoom();
+  else if (action === "remove-room") removeAxiomRoom();
   else if (action === "close-editor") closeEditor();
   else if (action === "save-event") saveDraft();
   else if (action === "pick-color") pickColor(btn.dataset.color);
@@ -772,15 +775,49 @@ function closeEditor() {
   $("editor").innerHTML = "";
 }
 
-function setMeetWanted(want) {
+function refreshEditor() {
   if (!state.draft) return;
-  readEditor();
-  state.draft.addMeet = want;
   const root = $("editor");
   root.innerHTML = editorHtml(state, state.draft);
   bindEditor(root);
   updateEditorBits();
   drawWheel();
+}
+
+function setMeetWanted(want) {
+  if (!state.draft) return;
+  readEditor();
+  state.draft.addMeet = want;
+  refreshEditor();
+}
+
+function calendarBase() {
+  if (typeof location !== "undefined" && /^https?:$/.test(location.protocol)) {
+    return location.origin + location.pathname.replace(/[^/]*$/, "");
+  }
+  return undefined;
+}
+
+function addAxiomRoom() {
+  if (!state.draft) return;
+  readEditor();
+  if (axiomRoomLinkOf(state.draft)) {
+    refreshEditor();
+    return;
+  }
+  const url = roomUrlForCode(newRoomCode(), calendarBase());
+  const placed = placeRoom(state.draft.location, state.draft.description, url);
+  state.draft.location = placed.location;
+  state.draft.description = placed.description;
+  refreshEditor();
+}
+
+function removeAxiomRoom() {
+  if (!state.draft) return;
+  readEditor();
+  state.draft.location = stripRoomText(state.draft.location);
+  state.draft.description = stripRoomText(state.draft.description);
+  refreshEditor();
 }
 
 function bindEditor(root) {
@@ -1357,7 +1394,15 @@ function commandItems(query) {
     if (!query || query.toLowerCase().split(/\s+/).every((w) => hay.includes(w))) items.push(item);
   };
   const meeting = nextMeeting();
-  add({ label: "Join next meeting", hint: meeting?.summary || "Nothing with a Meet link", run: joinNext });
+  add({ label: "Join next meeting", hint: meeting?.summary || "Nothing with a video link", run: joinNext });
+  add({
+    label: "New Axiom video room",
+    hint: "Camera, mic, and chat",
+    run: () => {
+      const url = roomUrlForCode(newRoomCode(), calendarBase());
+      window.open(url, "_blank", "noopener");
+    },
+  });
   add({ label: "Create event", hint: "c", run: () => openCreate() });
   add({ label: "Today", hint: "t", run: goToday });
   add({ label: "Day view", hint: "d", run: () => setView("day") });
@@ -1427,7 +1472,7 @@ function closeCommand() {
 function nextMeeting() {
   const now = state.now.getTime();
   const cands = activeEvents(state).filter((e) => {
-    if (!meetLinkOf(e)) return false;
+    if (!meetLinkOf(e) && !axiomRoomLinkOf(e)) return false;
     const b = boundsOf(state, e);
     if (b.allDay) return false;
     return b.end.getTime() > now;
@@ -1437,8 +1482,8 @@ function nextMeeting() {
 
 function joinNext() {
   const event = nextMeeting();
-  if (!event) { toast("No upcoming meeting with a Meet link."); return; }
-  const url = meetLinkOf(event);
+  if (!event) { toast("No upcoming meeting with a video link."); return; }
+  const url = meetLinkOf(event) || axiomRoomLinkOf(event);
   const a = document.createElement("a");
   a.href = url;
   a.target = "_blank";
@@ -1481,6 +1526,15 @@ function openSettings() {
     openSettings();
   });
   $("set-save-offsets")?.addEventListener("click", saveOffsets);
+  $("set-save-turn")?.addEventListener("click", () => {
+    state.settings.turn = normalizeTurn({
+      urls: $("set-turn-urls").value,
+      username: $("set-turn-user").value,
+      credential: $("set-turn-cred").value,
+    });
+    persistSettings();
+    toast(state.settings.turn.urls ? "Relay saved in this browser" : "Relay cleared. STUN only.");
+  });
   $("set-export")?.addEventListener("click", exportSettings);
   $("set-import")?.addEventListener("change", importSettings);
   $("set-contacts")?.addEventListener("change", (e) => {

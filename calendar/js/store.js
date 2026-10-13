@@ -1,4 +1,5 @@
 import { DRIVE_SETTINGS_NAME, LS, PLACEHOLDER_CLIENT_ID, WYZANT_CALENDAR_ID, WYZANT_DEFAULT_OFFSET_HOURS } from "../config.js";
+import { normalizeTurn } from "./roomlink.js";
 import { SOURCE_RANK } from "./zones.js";
 
 export function defaultSettings() {
@@ -8,6 +9,7 @@ export function defaultSettings() {
     offsets: {},
     contacts: {},
     weekStart: 0,
+    turn: { urls: "", username: "", credential: "" },
   };
 }
 
@@ -58,6 +60,7 @@ export function normalizeSettings(input) {
     weekStart: input.weekStart === 1 ? 1 : 0,
     offsets: input.offsets && typeof input.offsets === "object" ? input.offsets : {},
     contacts: input.contacts && typeof input.contacts === "object" ? input.contacts : {},
+    turn: normalizeTurn(input.turn),
   };
 }
 
@@ -102,12 +105,14 @@ export function mergeSettings(local, remote) {
     const other = offsets[id];
     if (!other || newer(row.updated, other.updated)) offsets[id] = row;
   }
+  const localNewer = newer(a.updated, b.updated);
   return withOffsetDefaults({
     version: 1,
-    updated: newer(a.updated, b.updated) ? a.updated : b.updated,
-    weekStart: newer(a.updated, b.updated) ? a.weekStart : b.weekStart,
+    updated: localNewer ? a.updated : b.updated,
+    weekStart: localNewer ? a.weekStart : b.weekStart,
     offsets,
     contacts,
+    turn: localNewer ? a.turn : b.turn,
   });
 }
 

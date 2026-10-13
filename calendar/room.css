@@ -1,0 +1,128 @@
+:root {
+  --bg: #111318;
+  --panel: #1c1f26;
+  --text: #f3f4f6;
+  --dim: #a1a6b0;
+  --line: #2e333d;
+  --blue: #8ab4f8;
+  --red: #f28b82;
+  --safe-t: env(safe-area-inset-top);
+  --safe-b: env(safe-area-inset-bottom);
+  color-scheme: dark;
+  font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
+button, input { font: inherit; color: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+a { color: var(--blue); }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+#lobby, #call { min-height: 100dvh; }
+#lobby {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: calc(24px + var(--safe-t)) 16px calc(24px + var(--safe-b));
+}
+h1 { font-size: 28px; margin: 0 0 8px; }
+.kicker { color: var(--dim); margin: 0 0 8px; }
+.code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 18px; }
+.note { color: var(--dim); font-size: 14px; }
+label { display: block; margin: 12px 0 4px; color: var(--dim); font-size: 13px; }
+input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 8px 12px;
+  font-size: 16px;
+}
+button, #open-board {
+  min-height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  padding: 8px 14px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+button.primary { background: #1a73e8; border-color: #1a73e8; color: #fff; width: 100%; margin-top: 12px; font-weight: 700; }
+button.ghost { width: 100%; margin-top: 8px; background: transparent; }
+button.danger { color: var(--red); }
+details { margin-top: 16px; }
+#turn-save { margin-top: 8px; }
+
+#call {
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  grid-template-columns: 1fr minmax(220px, 280px);
+  height: 100dvh;
+}
+.top, #controls, #limits { grid-column: 1 / -1; }
+.top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: calc(10px + var(--safe-t)) 12px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.top h1 { font-size: 18px; }
+#call-status { margin: 0; color: var(--dim); font-size: 13px; }
+#stage {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  padding: 8px;
+  align-content: start;
+  overflow: auto;
+  background: #0b0d12;
+}
+.tile {
+  margin: 0;
+  position: relative;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: 160px;
+}
+.tile video { width: 100%; height: 100%; max-height: 52dvh; object-fit: cover; background: #000; display: block; }
+.tile figcaption {
+  position: absolute; left: 8px; bottom: 8px;
+  background: rgba(0,0,0,.55); border-radius: 999px; padding: 2px 8px; font-size: 12px;
+}
+.tile.local video { transform: scaleX(-1); }
+.tile.sharing video { transform: none; }
+#chat {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  min-height: 0;
+}
+#chat-log { list-style: none; margin: 0; padding: 8px; overflow: auto; flex: 1; }
+#chat-log li { margin: 0 0 8px; }
+#chat-log strong { display: block; font-size: 12px; color: var(--dim); }
+#chat-form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
+#chat-form input { flex: 1; }
+#controls {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+}
+#limits { margin: 0; padding: 0 12px calc(10px + var(--safe-b)); }
+#toast {
+  position: fixed; left: 50%; bottom: calc(16px + var(--safe-b)); transform: translateX(-50%);
+  background: #323232; color: #fff; border-radius: 8px; padding: 10px 14px; z-index: 5;
+}
+
+@media (max-width: 800px) {
+  #call { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(180px, 32dvh) auto auto; height: auto; min-height: 100dvh; }
+  #stage { grid-row: 2; }
+  #chat { grid-row: 3; border-left: 0; border-top: 1px solid var(--line); }
+  .tile video { max-height: 40dvh; }
+}

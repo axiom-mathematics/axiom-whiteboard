@@ -22,6 +22,15 @@ import {
   zoneFromText,
 } from "../calendar/js/zones.js";
 import { mergeSettings, withOffsetDefaults } from "../calendar/js/store.js";
+import {
+  axiomRoomLinkOf,
+  iceServers,
+  newRoomCode,
+  PEER_ID_RE,
+  placeRoom,
+  screenShareAvailable,
+  stripRoomText,
+} from "../calendar/js/roomlink.js";
 
 const now = zonedTimeToUtc(2026, 10, 13, 9, 0, HOME_TZ);
 
@@ -283,6 +292,51 @@ test("settings merge keeps manual zones and the Wyzant default", () => {
   const defaults = withOffsetDefaults({ offsets: {}, contacts: {} });
   assert.equal(defaults.offsets[WYZANT_CALENDAR_ID].hours, -2);
   assert.equal(defaults.offsets[WYZANT_CALENDAR_ID].enabled, true);
+});
+
+test("Axiom room links stay out of conferenceData", () => {
+  const code = newRoomCode();
+  assert.match(code, PEER_ID_RE);
+  const url = `https://axiom-mathematics.github.io/axiom-whiteboard/calendar/room.html?id=${code}`;
+  const placed = placeRoom("Library", "Bring the worksheet.", url);
+  assert.equal(placed.location, "Library");
+  assert.match(placed.description, /Axiom video room:/);
+  assert.equal(axiomRoomLinkOf(placed), url);
+  const emptyPlace = placeRoom("", "", url);
+  assert.equal(emptyPlace.location, url);
+  const cleared = stripRoomText(`${placed.location}\n${placed.description}`);
+  assert.equal(cleared, "Library\nBring the worksheet.");
+  const body = buildInsertBody({
+    summary: "Lesson",
+    location: placed.location,
+    description: placed.description,
+    allDay: false,
+    start: now,
+    end: new Date(now.getTime() + 3600000),
+    attendees: [],
+    colorTouched: false,
+    addMeet: false,
+    hadMeet: false,
+  });
+  assert.equal(body.conferenceData, undefined);
+  assert.equal(body.location, "Library");
+  assert.equal(axiomRoomLinkOf({ hangoutLink: "https://meet.google.com/abc-defg-hij", location: "Library" }), null);
+  const servers = iceServers({ urls: "turn:relay.example.com:443 javascript:alert(1)", username: "u", credential: "p" });
+  assert.equal(servers.length, 3);
+  assert.deepEqual(servers[2].urls, ["turn:relay.example.com:443"]);
+  assert.equal(iceServers({}).length, 2);
+  assert.equal(screenShareAvailable({
+    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+    platform: "iPhone",
+    maxTouchPoints: 5,
+    mediaDevices: { getDisplayMedia() {} },
+  }), false);
+  assert.equal(screenShareAvailable({
+    userAgent: "Mozilla/5.0",
+    platform: "MacIntel",
+    maxTouchPoints: 0,
+    mediaDevices: { getDisplayMedia() {} },
+  }), true);
 });
 
 test("round-trip Chicago civil time across DST", () => {

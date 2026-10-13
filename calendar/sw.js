@@ -1,7 +1,9 @@
-const CACHE = "axiom-calendar-v2";
+const CACHE = "axiom-calendar-v3";
 const ASSETS = [
   "./",
   "./index.html",
+  "./room.html",
+  "./room.css",
   "./styles.css",
   "./manifest.webmanifest",
   "./config.js",
@@ -11,6 +13,8 @@ const ASSETS = [
   "./js/demo.js",
   "./js/eventbody.js",
   "./js/parse.js",
+  "./js/room.js",
+  "./js/roomlink.js",
   "./js/policy.js",
   "./js/store.js",
   "./js/time.js",

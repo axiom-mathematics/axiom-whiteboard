@@ -28,6 +28,7 @@ import {
   zoneAbbrev,
 } from "./time.js";
 import { clocksForEvent } from "./zones.js";
+import { axiomRoomLinkOf } from "./roomlink.js";
 import { dialInText, esc, googleEventUrl, meetLinkOf, phoneEntryOf, safeHttpUrl, safeTel, videoIcon } from "./util.js";
 
 export const HOUR_PX = 48;
@@ -67,6 +68,15 @@ function isSoon(bounds, state) {
   if (!bounds || bounds.allDay) return false;
   const t = state.now.getTime();
   return t >= bounds.start.getTime() - 10 * 60000 && t <= bounds.end.getTime();
+}
+
+function videoJoins(event, soon, compact) {
+  const meet = meetLinkOf(event);
+  const room = axiomRoomLinkOf(event);
+  const bits = [];
+  if (meet) bits.push(`<a class="ev-join${soon ? " hot" : ""}" href="${esc(meet)}" target="_blank" rel="noopener noreferrer" aria-label="Join Meet">${videoIcon("tiny")}${!compact && soon ? "<span>Meet</span>" : ""}</a>`);
+  if (room) bits.push(`<a class="ev-join room${soon ? " hot" : ""}" href="${esc(room)}" target="_blank" rel="noopener noreferrer" aria-label="Join Axiom room">${videoIcon("tiny")}${!compact && soon ? "<span>Room</span>" : ""}</a>`);
+  return bits.length ? `<span class="ev-joins">${bits.join("")}</span>` : "";
 }
 
 function clockLine(start, clock) {
@@ -212,8 +222,7 @@ function allDayHtml(state, days, events) {
     const color = colorOf(state, bar.ev);
     const left = (bar.startCol / days.length) * 100;
     const width = ((bar.endCol - bar.startCol) / days.length) * 100;
-    const link = meetLinkOf(bar.ev);
-    return `<div role="button" tabindex="0" class="aday" data-action="open-event" data-cal="${esc(bar.ev.calendarId)}" data-id="${esc(bar.ev.id)}" style="top:${bar.lane * 22}px;left:${left}%;width:calc(${width}% - 4px);background:${esc(color)};color:${textOn(color)}">${esc(bar.ev.summary || "(No title)")}${link ? `<a class="ev-join" href="${esc(link)}" target="_blank" rel="noopener noreferrer" aria-label="Join Meet">${videoIcon("tiny")}</a>` : ""}</div>`;
+    return `<div role="button" tabindex="0" class="aday" data-action="open-event" data-cal="${esc(bar.ev.calendarId)}" data-id="${esc(bar.ev.id)}" style="top:${bar.lane * 22}px;left:${left}%;width:calc(${width}% - 4px);background:${esc(color)};color:${textOn(color)}">${esc(bar.ev.summary || "(No title)")}${videoJoins(bar.ev, false, true)}</div>`;
   }).join("");
   return `<div class="allday"><div class="gutter">all-day</div><div class="allday-cols" style="height:${laneCount * 22 + 6}px">${chips}</div></div>`;
 }
@@ -268,7 +277,6 @@ function eventBlock(state, item) {
   const width = 100 / item.cols;
   const left = item.col * width;
   const soon = isSoon(item.b, state);
-  const link = meetLinkOf(item.ev);
   const badge = offsetBadge(item.ev.calendarId, offsetHours(state.settings, item.ev.calendarId));
   const clocks = clocksForEvent(item.ev, zoneCtx(state));
   const secondary = clocks.map((c) => clockLine(item.b.start, c)).join(" · ");
@@ -280,7 +288,7 @@ function eventBlock(state, item) {
     ${height > 32 ? `<span class="ev-time">${esc(time)}</span>` : ""}
     ${height > 52 && secondary ? `<span class="ev-zone">${esc(secondary)}</span>` : ""}
     ${badge ? `<span class="ev-flag" title="${esc(badge)}">${esc(badge)}</span>` : ""}
-    ${link ? `<a class="ev-join${soon ? " hot" : ""}" href="${esc(link)}" target="_blank" rel="noopener noreferrer" aria-label="Join Meet">${videoIcon("tiny")}${soon ? "<span>Join</span>" : ""}</a>` : ""}
+    ${videoJoins(item.ev, soon, false)}
   </div>`;
 }
 
@@ -304,8 +312,7 @@ function monthHtml(state) {
       const b = boundsOf(state, ev);
       const soon = isSoon(b, state);
       const label = b.allDay ? "" : `${formatCompactTime(b.start)} `;
-      const link = meetLinkOf(ev);
-      return `<div role="button" tabindex="0" class="chip${soon ? " is-soon" : ""}" data-action="open-event" data-cal="${esc(ev.calendarId)}" data-id="${esc(ev.id)}" style="background:${esc(color)};color:${textOn(color)}"><span>${esc(label + (ev.summary || "(No title)"))}</span>${link ? `<a class="ev-join${soon ? " hot" : ""}" href="${esc(link)}" target="_blank" rel="noopener noreferrer" aria-label="Join Meet">${videoIcon("tiny")}</a>` : ""}</div>`;
+      return `<div role="button" tabindex="0" class="chip${soon ? " is-soon" : ""}" data-action="open-event" data-cal="${esc(ev.calendarId)}" data-id="${esc(ev.id)}" style="background:${esc(color)};color:${textOn(color)}"><span>${esc(label + (ev.summary || "(No title)"))}</span>${videoJoins(ev, soon, true)}</div>`;
     }).join("");
     return `<div class="mcell${d.m !== state.anchor.m ? " out" : ""}${isToday(d, state) ? " today" : ""}">
       <button type="button" class="mnum" data-action="open-day" data-date="${ymdStr(d)}">${d.d}</button>
@@ -337,7 +344,6 @@ function agendaRow(state, event) {
   const badge = offsetBadge(event.calendarId, offsetHours(state.settings, event.calendarId));
   const soon = isSoon(b, state);
   const when = b.allDay ? "All day" : formatRange(b.start, b.end);
-  const link = meetLinkOf(event);
   return `<div role="button" tabindex="0" class="ag-row${soon ? " is-soon" : ""}" data-action="open-event" data-cal="${esc(event.calendarId)}" data-id="${esc(event.id)}">
     <i style="background:${esc(color)}"></i>
     <span class="ag-when">${esc(when)}</span>
@@ -345,7 +351,7 @@ function agendaRow(state, event) {
     ${secondary ? `<span class="ag-zone">${esc(secondary)}</span>` : ""}
     ${event.location ? `<span class="ag-loc">${esc(event.location)}</span>` : ""}
     ${badge ? `<span class="tag adjust" title="${esc(badge)}">${esc(badge)}</span>` : ""}
-    ${link ? `<a class="ev-join${soon ? " hot" : ""}" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${videoIcon("tiny")}${soon ? "<span>Join</span>" : ""}</a>` : ""}
+    ${videoJoins(event, soon, false)}
   </div>`;
 }
 
@@ -354,6 +360,7 @@ export function popoverHtml(state, event) {
   const b = boundsOf(state, event);
   const color = colorOf(state, event);
   const link = meetLinkOf(event);
+  const room = axiomRoomLinkOf(event);
   const soon = isSoon(b, state);
   const clocks = b.allDay ? [] : clocksForEvent(event, zoneCtx(state));
   const badge = offsetBadge(event.calendarId, offsetHours(state.settings, event.calendarId));
@@ -370,7 +377,8 @@ export function popoverHtml(state, event) {
   const reminders = event.reminders?.useDefault !== false && !event.reminders?.overrides?.length
     ? "Calendar default"
     : (event.reminders?.overrides || []).map((r) => `${r.method === "email" ? "Email" : "Notification"} · ${reminderLabel(r.minutes)}`).join(", ") || "None";
-  const map = event.location ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}` : "";
+  const locationText = event.location && event.location.trim() !== room ? event.location : "";
+  const map = locationText ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationText)}` : "";
   return `<div class="pop" role="dialog" aria-label="${esc(event.summary || "Event")}">
     <div class="pop-color" style="background:${esc(color)}"></div>
     <div class="pop-body">
@@ -382,12 +390,14 @@ export function popoverHtml(state, event) {
       ${clocks.map((c) => `<p class="guest-time">${esc(clockLine(b.start, c))} · ${esc(zoneAbbrev(b.start, c.timeZone))}</p>`).join("")}
       ${badge ? `<p class="adjust-note" title="${esc(badge)}">${esc(badge)}</p>` : ""}
       ${link ? `<a class="join${soon ? " hot" : ""}" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${videoIcon()} Join Meet</a>` : ""}
+      ${room ? `<a class="join room${soon && !link ? " hot" : ""}" href="${esc(room)}" target="_blank" rel="noopener noreferrer">${videoIcon()} Join Axiom room</a>` : ""}
       <div class="pop-actions">
         ${link ? `<button type="button" data-action="copy-link" data-url="${esc(link)}">Copy link</button>` : ""}
+        ${room ? `<button type="button" data-action="copy-link" data-url="${esc(room)}">Copy room link</button>` : ""}
         ${tel ? `<a href="${esc(tel)}">Call</a>` : ""}
         ${dial ? `<button type="button" data-action="copy-dial" data-text="${esc(dial).replace(/\n/g, "&#10;")}">Share dial-in</button>` : ""}
       </div>
-      ${event.location ? `<p class="loc"><a href="${esc(map)}" target="_blank" rel="noopener noreferrer">${esc(event.location)}</a></p>` : ""}
+      ${locationText ? `<p class="loc"><a href="${esc(map)}" target="_blank" rel="noopener noreferrer">${esc(locationText)}</a></p>` : ""}
       ${event.description ? `<div class="desc">${linkify(event.description)}</div>` : ""}
       ${guests ? `<ul class="guests">${guests}</ul>` : ""}
       ${self && !organizerSelf ? `<div class="rsvp" role="group" aria-label="RSVP">
@@ -491,6 +501,7 @@ export function editorHtml(state, draft) {
       </div>
       <label>Location <input id="ed-location" value="${esc(draft.location || "")}" placeholder="Add location"></label>
       ${meetEditorHtml(draft)}
+      ${roomEditorHtml(draft)}
       <label>Guests <input id="ed-guest" type="email" placeholder="name@email.com" autocomplete="off"></label>
       <ul id="ed-guests" class="guest-edit"></ul>
       <label class="check"><input id="ed-notify" type="checkbox" ${draft.notify !== false ? "checked" : ""}> Email guests about changes</label>
@@ -537,6 +548,24 @@ function meetEditorHtml(draft) {
   return `<section class="meet-box">
     <label class="check"><input id="ed-meet" type="checkbox" ${draft.addMeet ? "checked" : ""}> Add Google Meet video conferencing</label>
     <p class="hint">A new Meet link is created when you save. In-call tools (recording, captions, breakout rooms) open in Meet itself.</p>
+  </section>`;
+}
+
+function roomEditorHtml(draft) {
+  const link = axiomRoomLinkOf(draft) || "";
+  if (link) {
+    return `<section class="meet-box">
+      <p class="meet-current"><a href="${esc(link)}" target="_blank" rel="noopener noreferrer">Join Axiom video room</a></p>
+      <div class="pop-actions">
+        <button type="button" data-action="copy-link" data-url="${esc(link)}">Copy invite link</button>
+        <button type="button" data-action="remove-room">Remove Axiom room</button>
+      </div>
+      <p class="hint">The link is written into the location and description, not into Google Meet, so guests see it on the invite. Peer-to-peer works best 1:1, and the first open tab has to stay open.</p>
+    </section>`;
+  }
+  return `<section class="meet-box">
+    <button type="button" data-action="add-room">Add Axiom video room</button>
+    <p class="hint">Creates a camera, mic, and chat room in this app. Google Meet above is unchanged. The room link goes in the location and description.</p>
   </section>`;
 }
 
@@ -627,6 +656,12 @@ export function settingsHtml(state) {
       <ul id="set-contacts" class="contact-list">
         ${contacts.filter(([, c]) => c.timeZone).map(([email, c]) => contactRow(email, c)).join("") || `<li class="empty">No saved zones yet.</li>`}
       </ul>
+      <h3>Axiom video rooms</h3>
+      <p class="hint">Rooms use public STUN, the same idea as the whiteboard. If a student’s network blocks the call, paste a TURN relay. <a href="https://www.metered.ca/tools/openrelay/" target="_blank" rel="noopener noreferrer">Metered Open Relay</a> has a free tier. Leave the URL empty to stay on STUN only. This is stored with the other settings.</p>
+      <label>TURN URL <input id="set-turn-urls" value="${esc(state.settings.turn?.urls || "")}" placeholder="turn:example.com:443" autocomplete="off"></label>
+      <label>Username <input id="set-turn-user" value="${esc(state.settings.turn?.username || "")}" autocomplete="off"></label>
+      <label>Credential <input id="set-turn-cred" type="password" value="${esc(state.settings.turn?.credential || "")}" autocomplete="off"></label>
+      <button type="button" id="set-save-turn" class="primary">Save relay</button>
       <h3>Sync</h3>
       <p class="hint" id="set-sync">${esc(state.driveNote || "Contact zones and offsets are stored in this browser and, when Drive app data is allowed, in a private file on your Google account.")}</p>
       <div class="pop-actions">
@@ -657,7 +692,7 @@ export function helpHtml() {
   return `<div class="sheet help" role="dialog" aria-modal="true" aria-labelledby="help-title">
     <header class="sheet-bar"><button type="button" data-action="close-help">Close</button><h2 id="help-title">Shortcuts</h2><span></span></header>
     <div class="sheet-body"><table>${rows.map(([k, v]) => `<tr><td><kbd>${esc(k)}</kbd></td><td>${esc(v)}</td></tr>`).join("")}</table>
-    <p class="hint">Quick add understands phrases like “Algebra w/ Maya tue 4pm 1h”, “lunch tomorrow noon”, and “video call Friday 3pm”.</p></div>
+    <p class="hint">Quick add understands phrases like “Algebra w/ Maya tue 4pm 1h”, “lunch tomorrow noon”, and “video call Friday 3pm”. Axiom video rooms are separate from Google Meet: the editor writes the room link into the invite.</p></div>
   </div>`;
 }
 

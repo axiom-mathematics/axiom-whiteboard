@@ -70,7 +70,7 @@ export function buildDemo(now = new Date()) {
       ...fromNow(now, -20, 70),
       colorId: "9",
       location: "Google Meet",
-      description: "Similar triangles. Luis is in San Francisco.",
+      description: "Similar triangles. Luis is in San Francisco.\n\nAxiom video room: https://axiom-mathematics.github.io/axiom-whiteboard/calendar/room.html?id=cal-demo1",
       hangoutLink: "https://meet.google.com/abc-defg-hij",
       conferenceData: MEET,
       organizer: { email: "luis@example.com", displayName: "Luis Ortega" },
