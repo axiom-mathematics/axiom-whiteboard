@@ -2,7 +2,6 @@ import {
   AUTHORIZED_JS_ORIGIN,
   HOME_TZ,
   LS,
-  PLACEHOLDER_CLIENT_ID,
   SCOPES,
 } from "../config.js";
 import { createApi } from "./api.js";
@@ -22,10 +21,11 @@ import { axiomRoomLinkOf, newRoomCode, normalizeTurn, placeRoom, roomUrlForCode,
 import {
   loadClientId,
   loadLocalSettings,
+  saveClientId,
+  storedClientId,
   mergeSettings,
   pullDriveSettings,
   pushDriveSettings,
-  saveClientId,
   saveLocalSettings,
   clientIdConfigured,
   withOffsetDefaults,
@@ -112,6 +112,7 @@ let suppressClick = false;
 const $ = (id) => document.getElementById(id);
 
 function boot() {
+  state.clientOverride = storedClientId();
   state.clientId = loadClientId();
   state.settings = withOffsetDefaults(loadLocalSettings());
   const savedView = localStorage.getItem(LS.view);
@@ -121,8 +122,6 @@ function boot() {
   const savedAnchor = localStorage.getItem(LS.anchor);
   state.anchor = savedAnchor && /^\d{4}-\d{2}-\d{2}$/.test(savedAnchor) ? fromYmd(savedAnchor) : todayYmd();
   state.mini = { y: state.anchor.y, m: state.anchor.m };
-  const gateInput = $("gate-client");
-  if (gateInput) gateInput.value = state.clientId && state.clientId !== PLACEHOLDER_CLIENT_ID ? state.clientId : "";
   bind();
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
@@ -151,9 +150,6 @@ function showShell() {
 function bind() {
   $("gate-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
-    const id = $("gate-client").value.trim();
-    state.clientId = id;
-    saveClientId(id);
     signIn();
   });
   $("preview-link")?.addEventListener("click", (e) => {
@@ -209,13 +205,12 @@ function enterDemo() {
 }
 
 async function signIn() {
-  const id = ($("gate-client")?.value || state.clientId || "").trim();
-  state.clientId = id;
-  saveClientId(id);
-  if (!clientIdConfigured(id)) {
-    toast("Paste the OAuth client ID from Google Cloud first.");
+  state.clientOverride = storedClientId();
+  state.clientId = loadClientId();
+  if (!clientIdConfigured(state.clientId)) {
+    toast("The Google client ID isn’t usable.");
     $("gate-error").hidden = false;
-    $("gate-error").textContent = `The client ID looks empty or still the placeholder. Create a Web client and add ${AUTHORIZED_JS_ORIGIN} as an authorized JavaScript origin.`;
+    $("gate-error").textContent = `Sign-in needs a Web client whose authorized JavaScript origin is ${AUTHORIZED_JS_ORIGIN}.`;
     return;
   }
   try {
@@ -1509,9 +1504,10 @@ function openSettings() {
   $("settings").innerHTML = settingsHtml(state);
   ensureTzList();
   $("set-save-client")?.addEventListener("click", () => {
-    state.clientId = $("set-client").value.trim();
-    saveClientId(state.clientId);
-    toast("Client ID saved. Sign in again to use it.");
+    saveClientId($("set-client").value);
+    state.clientOverride = storedClientId();
+    state.clientId = loadClientId();
+    toast(state.clientOverride ? "This browser will use that client ID. Sign in again to apply it." : "Using the built-in client ID. Sign in again to apply it.");
   });
   $("set-signout")?.addEventListener("click", () => {
     state.token = "";

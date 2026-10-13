@@ -1,4 +1,4 @@
-const CACHE = "axiom-calendar-v3";
+const CACHE = "axiom-calendar-v4";
 const ASSETS = [
   "./",
   "./index.html",

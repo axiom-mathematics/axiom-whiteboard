@@ -64,7 +64,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .gate-card h1 { margin: 0 0 4px; font-size: 26px; font-weight: 500; }
 .lede { margin: 0 0 18px; color: var(--text-dim); }
 #gate-form label, .sheet-body label, #quick-form label, .cal-head { display: block; font-size: 12px; color: var(--text-dim); margin: 12px 0 4px; }
-#gate-client, .sheet-body input, .sheet-body select, .sheet-body textarea, #quick-input, #search-input, #cmd-input {
+.sheet-body input, .sheet-body select, .sheet-body textarea, #quick-input, #search-input, #cmd-input {
   width: 100%; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 10px 12px;
 }
 .sheet-body textarea { resize: vertical; }

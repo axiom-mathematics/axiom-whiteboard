@@ -1,60 +1,32 @@
 # Axiom Calendar setup
 
-The app is a static page. It talks to Google Calendar from the browser. There is no server. Steve signs in with `stephen.kaminskie@gmail.com`.
-
-After this repo’s `calendar/` folder is on `main`, the app is:
+The Google client is already configured. Open the app and tap **Sign in with Google**. Choose `stephen.kaminskie@gmail.com`. There is no client ID to paste.
 
 https://axiom-mathematics.github.io/axiom-whiteboard/calendar/
 
-## 1. Google Cloud project
+- Google Cloud project: `secret-canyon-511520-b7`
+- OAuth consent screen: **Testing**
+- Test user: `stephen.kaminskie@gmail.com`
+- The public client ID lives in `calendar/config.js`. It is not a secret. A different ID saved in this browser (`localStorage`, key `axiom.calendar.clientId`) overrides it. Settings → OAuth client ID override. Leave that blank to use the built-in client.
 
-1. Open [Google Cloud Console](https://console.cloud.google.com/).
-2. Create a project (for example **Axiom Calendar**) or pick an existing one.
-3. **APIs & Services → Library**, and enable:
-   - Google Calendar API
-   - People API (so a contact’s address can suggest a time zone)
-   - Google Drive API (so contact time zones and the Wyzant offset sync across devices, in a private app-data file)
+The app is a static page. It talks to Google Calendar from the browser. There is no server.
 
-## 2. OAuth consent screen
+If Google says the app isn’t verified, continue as the test user above. Testing grants expire after about 7 days, and iPhone Safari often blocks a silent refresh, so if the calendar asks you to sign in again, tap **Sign in with Google**.
 
-1. **APIs & Services → OAuth consent screen**.
-2. User type: **External**. Create the app.
-3. App name: `Axiom Calendar`.
-4. User support email and developer contact: `stephen.kaminskie@gmail.com`.
-5. Save and continue through scopes. The app asks for these at sign-in:
+If the browser blocks the popup, allow popups for `axiom-mathematics.github.io` and tap Sign in again. On iPhone, the first sign-in has to be a tap. To install it: Share → **Add to Home Screen**.
+
+The authorized JavaScript origin on the Web client is exactly `https://axiom-mathematics.github.io` (no path, no trailing slash). Sign-in uses the Google Identity Services token popup, so no redirect URI is required.
+
+## If the client has to be recreated
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) in project `secret-canyon-511520-b7`.
+2. Enable the Calendar API, People API, and Drive API.
+3. OAuth consent screen: External, **Testing**, test user `stephen.kaminskie@gmail.com`. Scopes used at sign-in:
    - `https://www.googleapis.com/auth/calendar`
    - `https://www.googleapis.com/auth/contacts.readonly`
    - `https://www.googleapis.com/auth/drive.appdata`
-6. **Test users → Add users** → `stephen.kaminskie@gmail.com`.
-
-Leave the app in **Testing**. The Calendar scope is restricted; a personal test user does not need Google’s verification review. If a later sign-in says the app isn’t verified, continue as the test user you added. Testing grants expire after about 7 days, and iPhone Safari often blocks a silent refresh, so if the calendar asks you to sign in again, tap **Sign in with Google**.
-
-## 3. Web OAuth client
-
-1. **APIs & Services → Credentials → Create credentials → OAuth client ID**.
-2. Application type: **Web application**.
-3. Name: `Axiom Calendar web`.
-4. **Authorized JavaScript origins** — add exactly:
-
-   `https://axiom-mathematics.github.io`
-
-   The path (`/axiom-whiteboard/calendar/`) is not part of the origin. Do not put a trailing slash on the origin.
-
-5. **Authorized redirect URIs** — leave this empty. Sign-in uses the Google Identity Services token popup, which does not use a redirect URI. If the form will not save with the field empty, add `https://axiom-mathematics.github.io` there too.
-
-6. Create, and copy the **Client ID**. It ends with `.apps.googleusercontent.com`.
-
-Optional, only if you open the app on your own computer: also add `http://localhost:8080` (the exact port you use) as a JavaScript origin.
-
-## 4. Paste the client ID
-
-1. Open https://axiom-mathematics.github.io/axiom-whiteboard/calendar/
-2. Paste the client ID into the field on the sign-in screen.
-3. Tap **Sign in with Google** and choose `stephen.kaminskie@gmail.com`.
-4. If the browser blocks the popup, allow popups for `axiom-mathematics.github.io` and tap Sign in again.
-5. On iPhone, the first sign-in has to be a tap (Safari blocks the Google window otherwise). To install it: Share → **Add to Home Screen**.
-
-The client ID is stored in this browser only (`localStorage`). It is not written into the repo.
+4. Create a **Web application** OAuth client. Authorized JavaScript origin: `https://axiom-mathematics.github.io`. Leave redirect URIs empty.
+5. Put the new client ID in `calendar/config.js` as `DEFAULT_CLIENT_ID`, or paste it into Settings on a single browser to override the built-in one.
 
 ## What the app does
 
