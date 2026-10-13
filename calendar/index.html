@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1e4a38">
+<meta name="description" content="Steve Kaminskie's calendar. Google Calendar is the source of truth.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Calendar">
+<title>Axiom Calendar</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app" class="app">
+  <aside id="sidebar" aria-label="Calendars">
+    <div class="side-head">
+      <div class="brand-mark" id="brand-day" aria-hidden="true"></div>
+      <div>
+        <div class="brand-kicker">Axiom</div>
+        <div class="brand-title">Calendar</div>
+      </div>
+    </div>
+    <div class="mini-wrap">
+      <div class="mini-nav">
+        <button type="button" id="mini-prev" aria-label="Previous month">‹</button>
+        <div id="mini-label"></div>
+        <button type="button" id="mini-next" aria-label="Next month">›</button>
+      </div>
+      <div id="mini" class="mini"></div>
+    </div>
+    <div class="side-label">Calendars</div>
+    <div id="calendar-list"></div>
+    <div class="side-foot">
+      <p id="account" class="account">Not signed in</p>
+      <p class="tz">Times in America/Chicago</p>
+      <div class="side-actions">
+        <button type="button" id="settings-btn" class="btn">Settings</button>
+        <button type="button" id="help-btn" class="btn">Help</button>
+        <button type="button" id="refresh-btn" class="btn">Refresh</button>
+      </div>
+      <button type="button" id="signout-btn" class="btn" hidden>Sign out</button>
+    </div>
+  </aside>
+  <div id="scrim" hidden></div>
+  <div class="workspace">
+    <header class="topbar">
+      <button type="button" id="menu-btn" class="icon-btn" aria-label="Open calendars">☰</button>
+      <div class="pager">
+        <button type="button" id="prev-btn" class="icon-btn" aria-label="Previous">‹</button>
+        <button type="button" id="today-btn" class="text-btn">Today</button>
+        <button type="button" id="next-btn" class="icon-btn" aria-label="Next">›</button>
+      </div>
+      <h1 id="range-label" class="range-label">Calendar</h1>
+      <div class="view-switch" role="tablist" aria-label="Calendar view">
+        <button type="button" role="tab" data-view="day">Day</button>
+        <button type="button" role="tab" data-view="week">Week</button>
+        <button type="button" role="tab" data-view="month">Month</button>
+        <button type="button" role="tab" data-view="agenda">Agenda</button>
+      </div>
+      <form id="quick-form" class="quick-add" autocomplete="off">
+        <label class="sr-only" for="quick-input">Quick add</label>
+        <input id="quick-input" name="q" placeholder="Quick add  ·  Algebra w/ Maya tue 4pm 1h" enterkeyhint="done" autocomplete="off">
+        <div id="quick-preview" class="quick-preview" hidden></div>
+      </form>
+      <button type="button" id="cmd-btn" class="cmd-btn" aria-label="Search and commands">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <span class="cmd-text">Search</span>
+        <kbd id="cmd-kbd">Ctrl K</kbd>
+      </button>
+      <button type="button" id="create-btn" class="create-btn" aria-label="Create event">+</button>
+    </header>
+    <div id="banner" class="banner" hidden>
+      <span>Sample events. Sign in to load Google Calendar. Preview changes are not written to Google.</span>
+      <button type="button" id="banner-signin" class="btn primary">Sign in</button>
+    </div>
+    <div id="progress" class="progress" hidden></div>
+    <div class="stage">
+      <main id="view"></main>
+      <div id="gate" class="gate">
+        <form id="gate-form" class="gate-card">
+          <p class="kicker">Axiom · Chicago</p>
+          <h2>Calendar</h2>
+          <p class="lede">Steve’s week, read and written through Google Calendar. Wyzant, Classroom, and invites stay on Google — this is a window onto them.</p>
+          <div class="stack">
+            <label class="field">Google OAuth client ID
+              <input id="client-id" name="client_id" autocomplete="off" spellcheck="false" inputmode="email">
+            </label>
+            <button type="submit" id="signin-btn" class="btn primary">Sign in with Google</button>
+            <button type="button" id="preview-btn" class="btn">Preview with sample events</button>
+            <div class="gate-links">
+              <button type="button" id="setup-btn" class="btn">Setup steps</button>
+              <a href="./SETUP.md">SETUP.md</a>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="modal-root"></div>
+<div id="toasts" aria-live="polite"></div>
+<noscript>Axiom Calendar needs JavaScript.</noscript>
+<script type="module" src="app.js"></script>
+</body>
+</html>
