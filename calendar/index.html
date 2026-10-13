@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1f1f1f" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Calendar">
+<meta name="description" content="Steve Kaminskie’s calendar. Google Calendar, in the browser, America/Chicago.">
+<title>Axiom Calendar</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+<script src="https://accounts.google.com/gsi/client" async></script>
+</head>
+<body>
+<div id="gate">
+  <main class="gate-card">
+    <div class="brand-mark" aria-hidden="true"></div>
+    <h1>Axiom Calendar</h1>
+    <p class="lede">Steve Kaminskie · America/Chicago</p>
+    <form id="gate-form" method="post" action="#" onsubmit="return false">
+      <label for="gate-client">OAuth client ID</label>
+      <input id="gate-client" name="client" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="….apps.googleusercontent.com" inputmode="url">
+      <button type="submit" class="primary signin">Sign in with Google</button>
+    </form>
+    <p id="gate-error" class="error" hidden></p>
+    <p class="hint">Authorized JavaScript origin: <code>https://axiom-mathematics.github.io</code></p>
+    <details>
+      <summary>Setup</summary>
+      <ol>
+        <li>In Google Cloud Console, create a <strong>Web application</strong> OAuth client.</li>
+        <li>Add the origin above. No redirect URI is required for the sign-in popup.</li>
+        <li>Enable the Calendar API, People API, and Drive API. Add stephen.kaminskie@gmail.com as a test user.</li>
+        <li>Paste the client ID here and sign in. The full click-path is in <code>SETUP.md</code>.</li>
+      </ol>
+    </details>
+    <p><a href="?demo=1" id="preview-link">Preview the layout with sample events</a></p>
+  </main>
+</div>
+
+<div id="shell" hidden>
+  <div id="progress" hidden></div>
+  <div id="banner" class="banner" hidden></div>
+  <header class="topbar">
+    <button type="button" id="nav-toggle" class="icon-btn" aria-label="Calendars">☰</button>
+    <div class="brand">Axiom Calendar</div>
+    <button type="button" class="today-btn" data-action="today">Today</button>
+    <button type="button" class="icon-btn" data-action="nav" data-dir="-1" aria-label="Previous">‹</button>
+    <button type="button" class="icon-btn" data-action="nav" data-dir="1" aria-label="Next">›</button>
+    <h1 id="range-label"></h1>
+    <div class="spacer"></div>
+    <div class="view-switch" role="tablist" aria-label="View">
+      <button type="button" data-set-view="day" role="tab">Day</button>
+      <button type="button" data-set-view="week" role="tab">Week</button>
+      <button type="button" data-set-view="month" role="tab">Month</button>
+      <button type="button" data-set-view="agenda" role="tab">Agenda</button>
+    </div>
+    <button type="button" class="icon-btn" data-action="search-toggle" aria-label="Search">⌕</button>
+    <button type="button" class="icon-btn" data-action="refresh" aria-label="Refresh">↻</button>
+    <button type="button" class="icon-btn" data-action="command" aria-label="Command menu">⌘K</button>
+    <button type="button" class="icon-btn" data-action="help" aria-label="Keyboard shortcuts">?</button>
+    <button type="button" class="icon-btn" data-action="settings" aria-label="Settings">⚙</button>
+  </header>
+  <div id="search-bar" hidden>
+    <input id="search-input" type="search" placeholder="Search events" aria-label="Search events" autocomplete="off">
+  </div>
+  <div class="layout">
+    <aside id="sidebar">
+      <button type="button" id="create-btn" class="create" data-action="create"><span class="plus">+</span> Create</button>
+      <div id="mini"></div>
+      <form id="quick-form">
+        <label for="quick-input">Quick add</label>
+        <input id="quick-input" placeholder="Algebra w/ Maya tue 4pm 1h" autocomplete="off" enterkeyhint="done">
+        <p id="quick-preview" class="preview"></p>
+        <button type="submit" class="textish" data-edit="1">Edit before saving</button>
+      </form>
+      <div class="cal-head">My calendars</div>
+      <div id="cal-list"></div>
+      <p id="now-readout" class="now-readout"></p>
+    </aside>
+    <div id="scrim" hidden></div>
+    <main id="main"></main>
+  </div>
+</div>
+
+<div id="popover" hidden></div>
+<div id="editor" hidden></div>
+<div id="command" hidden></div>
+<div id="help" hidden></div>
+<div id="settings" hidden></div>
+<div id="confirm" hidden></div>
+<div id="toast" hidden></div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

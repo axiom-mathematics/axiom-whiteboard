@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111318">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Axiom video room</title>
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="room.css">
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<script type="module" src="js/room.js"></script>
+</head>
+<body>
+<main id="lobby">
+  <p class="kicker"><a href="./">Axiom Calendar</a></p>
+  <h1>Axiom video room</h1>
+  <p id="lobby-code" class="code"></p>
+  <p class="note">Peer-to-peer, for a 1:1 lesson or a very small group. Whoever opens the room first is the host, and that tab has to stay open. This is not Google Meet.</p>
+  <label>Your name <input id="room-name" maxlength="80" autocomplete="nickname" enterkeyhint="done"></label>
+  <button type="button" id="join-cam" class="primary">Join with camera and mic</button>
+  <button type="button" id="join-chat" class="ghost">Join with chat only</button>
+  <p id="ios-note" class="note" hidden>Screen share isn’t available on iPhone or iPad. Camera, mic, and chat still work.</p>
+  <details id="turn-box">
+    <summary>Network relay (TURN)</summary>
+    <p class="note">Most home networks connect with the public STUN servers. A school or mobile network sometimes blocks that. Paste a TURN relay if a call won’t connect. <a href="https://www.metered.ca/tools/openrelay/" target="_blank" rel="noopener noreferrer">Metered Open Relay</a> has a free tier. The setting stays in this browser.</p>
+    <label>TURN URL <input id="turn-urls" placeholder="turn:example.com:443" autocomplete="off"></label>
+    <label>Username <input id="turn-user" autocomplete="off"></label>
+    <label>Credential <input id="turn-cred" type="password" autocomplete="off"></label>
+    <button type="button" id="turn-save">Save relay</button>
+  </details>
+</main>
+
+<section id="call" hidden>
+  <header class="top">
+    <div>
+      <p class="kicker"><a href="./">Calendar</a></p>
+      <h1 id="call-title">Axiom video room</h1>
+      <p id="call-status"></p>
+    </div>
+    <button type="button" id="copy-invite">Copy invite link</button>
+  </header>
+  <div id="stage"></div>
+  <aside id="chat">
+    <ol id="chat-log"></ol>
+    <form id="chat-form">
+      <input id="chat-input" maxlength="2000" placeholder="Message" autocomplete="off" enterkeyhint="send">
+      <button type="submit">Send</button>
+    </form>
+  </aside>
+  <footer id="controls">
+    <button type="button" id="mute-mic" aria-pressed="false">Mute mic</button>
+    <button type="button" id="mute-cam" aria-pressed="false">Stop camera</button>
+    <button type="button" id="share-screen" hidden>Share screen</button>
+    <a id="open-board" href="https://axiom-mathematics.github.io/axiom-whiteboard/" target="_blank" rel="noopener noreferrer">Open whiteboard</a>
+    <button type="button" id="reconnect">Reconnect</button>
+    <button type="button" id="leave" class="danger">Leave</button>
+  </footer>
+  <p id="limits" class="note">Keep this tab open if you joined first. Screen share needs a computer. In-call tools from Google Meet are not here.</p>
+</section>
+<p id="toast" hidden></p>
+</body>
+</html>
