@@ -1743,7 +1743,7 @@ function pointerUp(e) {
       const p0 = stroke.points[0];
       const lim = 3 / state.view.z;
       if (stroke.points.every(q => (q[0] - p0[0]) * (q[0] - p0[0]) + (q[1] - p0[1]) * (q[1] - p0[1]) <= lim * lim)) {
-        stroke.dot = 10 / state.view.z;
+        stroke.dot = Math.max(0.75, (stroke.size || 3) / 2);
         stroke.points = [[p0[0], p0[1], p0[2]]];
       }
     }
