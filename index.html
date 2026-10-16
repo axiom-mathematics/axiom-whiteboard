@@ -355,7 +355,7 @@
   <div class="cluster" id="penTune">
         <button id="swatch" title="Color"></button>
         <div id="savedColors" title="Click a color to use it. Right-click a color to save the current ink there."></div>
-        <button class="textbtn" id="saveColor" type="button" title="Save the current ink into one of the five colors">Save</button>
+        <button class="textbtn" id="saveColor" type="button" title="Save the current ink into one of the six colors">Save</button>
         <label>Thickness <input id="size" type="number" min="1" max="10" value="3"></label>
         <label>Smoothness <input id="smooth" type="number" min="1" max="10" value="10"></label>
       </div>
@@ -574,7 +574,7 @@ const state = {
   panning: null,
   erasing: false,
   recent: [],
-  savedColors: ["#ff3cac", "#ffe600", "#39ff14", "#00e5ff", "#ff8c00"],
+  savedColors: ["#ff3cac", "#ffe600", "#39ff14", "#00e5ff", "#ff8c00", "#b84dff"],
   saveSlot: 0,
   space: false,
   sel: null,
@@ -925,7 +925,7 @@ function renderSavedColors() {
         armSave = false;
         const saveBtn = document.getElementById("saveColor");
         saveBtn.textContent = "Save";
-        saveBtn.title = "Save the current ink into one of the five colors";
+        saveBtn.title = "Save the current ink into one of the six colors";
         saveColorToSlot(i);
         return;
       }
@@ -3068,10 +3068,11 @@ function applyBoard(data, announce) {
   if (data.view && Number.isFinite(+data.view.x) && Number.isFinite(+data.view.y) && Number.isFinite(+data.view.z) && +data.view.z > 0) {
     state.view = { x: +data.view.x, y: +data.view.y, z: +data.view.z };
   }
-  if (Array.isArray(data.savedColors) && (data.savedColors.length === 4 || data.savedColors.length === 5) && data.savedColors.every(c => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c))) {
+  if (Array.isArray(data.savedColors) && data.savedColors.length >= 4 && data.savedColors.length <= 6 && data.savedColors.every(c => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c))) {
     let colors = data.savedColors.map(c => c.toLowerCase());
     if (colors.join() === "#17072f,#1a3e2d,#c62828,#1d4ed8") colors = ["#ff3cac", "#ffe600", "#39ff14", "#00e5ff"];
     if (colors.length === 4) colors.push("#ff8c00");
+    if (colors.length === 5) colors.push("#b84dff");
     state.savedColors = colors;
   }
   state.strokes = (data.strokes || []).map(s => {
